@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 Ly, Lz = (800., 4.) # units = 1km
 
 # Create bases and domain
-y_basis = de.Fourier('y', 1024, interval=(-Ly, Ly), dealias=3/2)
-z_basis = de.Chebyshev('z',512, interval=(0, Lz), dealias=3/2)
+y_basis = de.Fourier('y', 512, interval=(-Ly, Ly), dealias=3/2)
+z_basis = de.Chebyshev('z', 256, interval=(0, Lz), dealias=3/2)
 domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
 
 ε = 0.03
@@ -46,6 +46,11 @@ Y['g'] = Ly*(y/Ly - (2/np.pi)*np.arctan(ε*np.tan(np.pi*y/(2*Ly))))/(1-ε)
 Amp, ay, az, σy, σz = 0.001, 0, 3.8, 30, 0.2
 Fy = domain.new_field()
 Fy['g'] = Amp*np.exp(-((y-ay)/σy)**2)*(1+erf((z-az)/σz))
+# RQ: I think this forcing does drive a near-bottom response because
+# of the rigid-lid. Flow is driven northwards at the surface initially
+# requiring southwards flow somewhere below in order to conserve
+# mass. So I think we need to go to divergenceless forcing to be clean
+# at the surface?
 
 Ω = 2*np.pi/24 # units = 1 hour
 f = 2*Ω
@@ -59,16 +64,23 @@ Bbot   = Btop*np.exp(-Lz/α)
 
 DBref = domain.new_field()
 DBref.meta['y']['constant'] = True
-DBref['g'] = Btop*(z/Lz)**6
+DBref['g'] = Btop*(z/Lz)**6   #RQ: This isn't that close, is it really
+                              #    an issue?
 
 # 2D Boussinesq hydrodynamics
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','ζ'])
 problem.meta[:]['z']['dirichlet'] = True
 
-problem.parameters['κz']  = 1e-6
-problem.parameters['νz']  = 5e-6
-problem.parameters['κy']  = 1e-4
-problem.parameters['νy']  = 5e-4
+# problem.parameters['κz']  = 1e-6  #RA: Equivalent 2.77e-4 m2s-1
+# problem.parameters['νz']  = 5e-6  #RA: Equivalent 1.38e-3 m2s-1
+problem.parameters['κy']  = 1e-4  #RA: Equivalent 2.77e-2 m2s-1
+problem.parameters['νy']  = 5e-4  #RA: Equivalent 1.38e-1 m2s-1
+                                  #RQ: Why pick Pr = 5 - better
+                                  #    numerically?
+                                  #RQ: Vertical kappa/nu seem 2 orders
+                                  #    of magnitude too strong?
+problem.parameters['κz']  = 1e-7  #RA: Equivalent 2.77e-5 m2s-1
+problem.parameters['νz']  = 5e-7  #RA: Equivalent 1.38e-4 m2s-1
 problem.parameters['f']  = f
 problem.parameters['ω']  = Ω/10
 problem.parameters['βY'] = β*Y
@@ -84,6 +96,9 @@ problem.add_equation("dt(w)  -f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b 
 problem.add_equation("bz - dz(b) = 0")
 problem.add_equation("uz - dz(u) = 0")
 problem.add_equation("ζ + dz(v) - dy(w) = 0")
+# RA: Advection terms are expressed using ζ by transforming pressure
+# P -> P - 1/2*w^2 - 1/2*v^2
+# RQ: Does this screw with the gauge condition on P?
 problem.add_bc("left(b) = Bbot")
 problem.add_bc("left(u) = 0")
 problem.add_bc("left(v) = 0")
@@ -91,7 +106,7 @@ problem.add_bc("left(w) = 0")
 problem.add_bc("right(b) = Btop")
 problem.add_bc("right(uz) = 0")
 problem.add_bc("right(ζ) = 0")
-problem.add_bc("right(w) = 0", condition="(ny != 0)")
+problem.add_bc("right(w) = 0", condition="(ny != 0)") #RQ: Why need ny !=0
 problem.add_bc("right(p) = 0", condition="(ny == 0)")
 
 # Build solver
@@ -109,7 +124,7 @@ b.differentiate('z', out=bz)
 
 # Integration parameters
 solver.stop_sim_time = np.inf
-solver.stop_wall_time = 18*60*60.
+solver.stop_wall_time = 14*60*60.
 solver.stop_iteration = np.inf
 
 # Analysis
@@ -123,7 +138,7 @@ snapshots.add_task("v")
 snapshots.add_task("w")
 snapshots.add_task("ζ")
 
-dt=0.01
+dt=0.05
 # CFL
 #CFL = flow_tools.CFL(solver, initial_dt=0.1, cadence=10, safety=1,
 #                     max_change=1.5, min_change=0.5, max_dt=0.1)
@@ -132,6 +147,9 @@ dt=0.01
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=20)
 flow.add_property("abs(ζ)/f", name='Ro')
+# This isn't a good measure of non-linearity (except at the Equator?)
+# because we would expect this to be large! That's the traditional
+# approximation.
 
 # Main loop
 try:
