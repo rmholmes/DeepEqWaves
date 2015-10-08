@@ -17,8 +17,8 @@ for ii=1:length(fnames)
                    1:length(var(1,:,1)));
     %    pcolPlot(Y,X,var(:,:,ti));
     pcolPlot(Y,X,var(:,:,end));
-    %    caxis([-5 5]*1e-2);
-    caxis([-1 1]*1e-4);
+    caxis([-1 1]*1e-2);
+    %caxis([-1 1]*1e-4);
     if (ii>1)
         posn = [pos(1) pos(2)+pos(4) pos(3) pos(4)];
         set(gca,'Position',posn);

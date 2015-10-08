@@ -46,11 +46,7 @@ Y['g'] = Ly*(y/Ly - (2/np.pi)*np.arctan(ε*np.tan(np.pi*y/(2*Ly))))/(1-ε)
 Amp, ay, az, σy, σz = 0.001, 0, 3.8, 30, 0.2
 Fy = domain.new_field()
 Fy['g'] = Amp*np.exp(-((y-ay)/σy)**2)*(1+erf((z-az)/σz))
-# RQ: I think this forcing does drive a near-bottom response because
-# of the rigid-lid. Flow is driven northwards at the surface initially
-# requiring southwards flow somewhere below in order to conserve
-# mass. So I think we need to go to divergenceless forcing to be clean
-# at the surface?
+# RA: Go to divergenceless forcing? Needs to be below surface.
 
 Ω = 2*np.pi/24 # units = 1 hour
 f = 2*Ω
@@ -64,8 +60,9 @@ Bbot   = Btop*np.exp(-Lz/α)
 
 DBref = domain.new_field()
 DBref.meta['y']['constant'] = True
-DBref['g'] = Btop*(z/Lz)**6   #RQ: This isn't that close, is it really
-                              #    an issue?
+DBref['g'] = Btop*(z/Lz)**6   #RQ: This isn't that close, is it an
+                              #    issue?
+
 
 # 2D Boussinesq hydrodynamics
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','ζ'])
@@ -92,13 +89,12 @@ problem.add_equation("dy(v) + dz(w) = 0")
 problem.add_equation("dt(b)       -      κy*d(b,y=2) - κz*dz(bz)     + w*DB =        -(v*dy(b) + w*(bz-DB))")
 problem.add_equation("dt(u) + f*w -      νy*d(u,y=2) - νz*dz(uz)            =  βY*v  -(v*dy(u) + w*uz)")
 problem.add_equation("dt(v)       - (νy-νz)*d(v,y=2) + νz*dz(ζ) + dy(p)     = -βY*u  + ζ*w + Fy*sin(ω*t)")
-problem.add_equation("dt(w)  -f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b =        - ζ*v")
+problem.add_equation("dt(w) - f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b =        - ζ*v")
 problem.add_equation("bz - dz(b) = 0")
 problem.add_equation("uz - dz(u) = 0")
 problem.add_equation("ζ + dz(v) - dy(w) = 0")
 # RA: Advection terms are expressed using ζ by transforming pressure
 # P -> P - 1/2*w^2 - 1/2*v^2
-# RQ: Does this screw with the gauge condition on P?
 problem.add_bc("left(b) = Bbot")
 problem.add_bc("left(u) = 0")
 problem.add_bc("left(v) = 0")
@@ -124,11 +120,11 @@ b.differentiate('z', out=bz)
 
 # Integration parameters
 solver.stop_sim_time = np.inf
-solver.stop_wall_time = 14*60*60.
+solver.stop_wall_time = 4*60*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=100, max_writes=50)
+snapshots = solver.evaluator.add_file_handler('snapshots', iter=60, max_writes=50)
 snapshots.add_task("b")
 snapshots.add_task("bz")
 snapshots.add_task("p")
@@ -138,18 +134,17 @@ snapshots.add_task("v")
 snapshots.add_task("w")
 snapshots.add_task("ζ")
 
-dt=0.05
+dt=0.5
 # CFL
 #CFL = flow_tools.CFL(solver, initial_dt=0.1, cadence=10, safety=1,
 #                     max_change=1.5, min_change=0.5, max_dt=0.1)
 #CFL.add_velocities(('v','w'))
 
 # Flow properties
-flow = flow_tools.GlobalFlowProperty(solver, cadence=20)
+flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
 flow.add_property("abs(ζ)/f", name='Ro')
 # This isn't a good measure of non-linearity (except at the Equator?)
-# because we would expect this to be large! That's the traditional
-# approximation.
+# because we would expect this to be large!
 
 # Main loop
 try:
@@ -158,7 +153,7 @@ try:
     while solver.ok:
         #        dt = CFL.compute_dt()
         solver.step(dt)
-        if (solver.iteration-1) % 20 == 0:
+        if (solver.iteration-1) % 10 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
             logger.info('Max Ro = %f' %flow.max('Ro'))
 except:
