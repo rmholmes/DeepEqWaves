@@ -43,10 +43,15 @@ z = domain.grid(1)
 Y = domain.new_field()
 Y['g'] = Ly*(y/Ly - (2/np.pi)*np.arctan(ε*np.tan(np.pi*y/(2*Ly))))/(1-ε)
 
-Amp, ay, az, σy, σz = 0.001, 0, 3.8, 30, 0.2
-Fy = domain.new_field()
-Fy['g'] = Amp*np.exp(-((y-ay)/σy)**2)*(1+erf((z-az)/σz))
-# RA: Go to divergenceless forcing? Needs to be below surface.
+SL0,dLy = 1/240,80
+SL = domain.new_field()
+SL['g'] = SL0*np.exp(-(Ly*np.cos(np.pi*y/(2*Ly))/dLy)**2)
+
+Amp, ay, az, σy, σz = 0.01, 0, 3.8, 30, 0.2
+# RA: Amplitude = 0.01 km hr^(-2) gives ~ 0.1 ms-1 amplitude zonal
+# velocity oscillations, consistent with observations.
+F0 = domain.new_field()
+F0['g'] = Amp*np.exp(-((y-ay)/σy)**2)*(1+erf((z-az)/σz))
 
 Ω = 2*np.pi/24 # units = 1 hour
 f = 2*Ω
@@ -60,9 +65,7 @@ Bbot   = Btop*np.exp(-Lz/α)
 
 DBref = domain.new_field()
 DBref.meta['y']['constant'] = True
-DBref['g'] = Btop*(z/Lz)**6   #RQ: This isn't that close, is it an
-                              #    issue?
-
+DBref['g'] = Btop*(z/Lz)**6
 
 # 2D Boussinesq hydrodynamics
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','ζ'])
@@ -82,14 +85,15 @@ problem.parameters['f']  = f
 problem.parameters['ω']  = Ω/10
 problem.parameters['βY'] = β*Y
 problem.parameters['DB'] = DBref
-problem.parameters['Fy'] =  Fy
+problem.parameters['F0'] =  F0
 problem.parameters['Bbot'] = Bbot
 problem.parameters['Btop'] = Btop
+problem.parameters['SL'] = SL
 problem.add_equation("dy(v) + dz(w) = 0")
-problem.add_equation("dt(b)       -      κy*d(b,y=2) - κz*dz(bz)     + w*DB =        -(v*dy(b) + w*(bz-DB))")
-problem.add_equation("dt(u) + f*w -      νy*d(u,y=2) - νz*dz(uz)            =  βY*v  -(v*dy(u) + w*uz)")
-problem.add_equation("dt(v)       - (νy-νz)*d(v,y=2) + νz*dz(ζ) + dy(p)     = -βY*u  + ζ*w + Fy*sin(ω*t)")
-problem.add_equation("dt(w) - f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b =        - ζ*v")
+problem.add_equation("dt(b)       -      κy*d(b,y=2) - κz*dz(bz)     + w*DB =        -(v*dy(b) + w*(bz-DB))               ")
+problem.add_equation("dt(u) + f*w -      νy*d(u,y=2) - νz*dz(uz)            =  βY*v  -(v*dy(u) + w*uz) + F0*sin(ω*t) -SL*u")
+problem.add_equation("dt(v)       - (νy-νz)*d(v,y=2) + νz*dz(ζ) + dy(p)     = -βY*u  + ζ*w                           -SL*v")
+problem.add_equation("dt(w) - f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b =        - ζ*v                           -SL*w")
 problem.add_equation("bz - dz(b) = 0")
 problem.add_equation("uz - dz(u) = 0")
 problem.add_equation("ζ + dz(v) - dy(w) = 0")
@@ -102,7 +106,7 @@ problem.add_bc("left(w) = 0")
 problem.add_bc("right(b) = Btop")
 problem.add_bc("right(uz) = 0")
 problem.add_bc("right(ζ) = 0")
-problem.add_bc("right(w) = 0", condition="(ny != 0)") #RQ: Why need ny !=0
+problem.add_bc("right(w) = 0", condition="(ny != 0)")
 problem.add_bc("right(p) = 0", condition="(ny == 0)")
 
 # Build solver
@@ -120,11 +124,11 @@ b.differentiate('z', out=bz)
 
 # Integration parameters
 solver.stop_sim_time = np.inf
-solver.stop_wall_time = 4*60*60.
+solver.stop_wall_time = 2*60*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=60, max_writes=50)
+snapshots = solver.evaluator.add_file_handler('snapshots', iter=96, max_writes=50)
 snapshots.add_task("b")
 snapshots.add_task("bz")
 snapshots.add_task("p")
@@ -133,8 +137,9 @@ snapshots.add_task("uz")
 snapshots.add_task("v")
 snapshots.add_task("w")
 snapshots.add_task("ζ")
+snapshots.add_task("(uz**2+ζ**2)/abs(bz)",name='invRi')
 
-dt=0.5
+dt=0.25
 # CFL
 #CFL = flow_tools.CFL(solver, initial_dt=0.1, cadence=10, safety=1,
 #                     max_change=1.5, min_change=0.5, max_dt=0.1)
@@ -142,9 +147,7 @@ dt=0.5
 
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
-flow.add_property("abs(ζ)/f", name='Ro')
-# This isn't a good measure of non-linearity (except at the Equator?)
-# because we would expect this to be large!
+flow.add_property("sqrt((uz**2+ζ**2)/abs(bz))", name='root_inv_Ri')
 
 # Main loop
 try:
@@ -153,9 +156,9 @@ try:
     while solver.ok:
         #        dt = CFL.compute_dt()
         solver.step(dt)
-        if (solver.iteration-1) % 10 == 0:
+        if (solver.iteration-1) % 20 == 0:
             logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
-            logger.info('Max Ro = %f' %flow.max('Ro'))
+            logger.info('Max 1/sqrt(Ri) = %f' %flow.max('root_inv_Ri'))
 except:
     logger.error('Exception raised, triggering end of main loop.')
     raise
