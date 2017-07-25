@@ -22,8 +22,8 @@ def main(filename, start, count, output):
     """Save plot of specified tasks for given range of analysis writes."""
 
     # Plot settings
-    tasks = ['invRi']
-    # tasks = ['v']
+    #tasks = ['invRi']
+    tasks = ['v']
     scale = 2.5
     dpi = 100
     title_func = lambda sim_time: 't = {:.3f}'.format(sim_time)
@@ -46,7 +46,8 @@ def main(filename, start, count, output):
                 axes = mfig.add_axes(i, j, [0, 0, 1, 1])
                 # Call 3D plotting helper, slicing in time
                 dset = file['tasks'][task]
-                plot_tools.plot_bot_3d(dset, 0, index, axes=axes, clim=(0,0.01),title='Inverse Richardson', even_scale=True)
+                # plot_tools.plot_bot_3d(dset, 0, index, axes=axes, clim=(0,0.01),title='Inverse Richardson', even_scale=True)
+                plot_tools.plot_bot_3d(dset, 0, index, axes=axes, clim=(-0.2,0.2),title='Meridional Velocity (kmhr^(-1))', even_scale=True)
             # Add time title
             title = title_func(file['scales/sim_time'][index])
             title_height = 1 - 0.5 * mfig.margin.top / mfig.fig.y
