@@ -28,6 +28,8 @@ from dedalus.extras import flow_tools
 import logging
 logger = logging.getLogger(__name__)
 
+# directories:
+rundir = '/short/e14/rmh561/dedalus/DeepEqWaves/rundir/'
 
 # Parameters
 Ly, Lz = (800., 4.) # units = 1km
@@ -144,7 +146,7 @@ solver.stop_wall_time = 6*60*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=20, max_writes=50)
+snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=20, max_writes=50)
 snapshots.add_task("b")
 snapshots.add_task("bz")
 snapshots.add_task("p")
@@ -158,14 +160,14 @@ if LIN:
 else:
     snapshots.add_task("(uz**2+ζ**2)/abs(bz)",name='invRi')
 
-energies = solver.evaluator.add_file_handler('energies', iter=20, max_writes=50)
+energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=20, max_writes=50)
 energies.add_task("0.5*u*u",name="Energy-x")
 energies.add_task("0.5*v*v",name="Energy-y")
 energies.add_task("0.5*w*w",name="Energy-z")
 if LIN:
     energies.add_task("0.5*b*b/N2bak",name="Energy-B")
 
-dissipation = solver.evaluator.add_file_handler('dissipation', iter=20, max_writes=50)
+dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=20, max_writes=50)
 dissipation.add_task("νy*dy(u)**2",name='u-y-diss')
 dissipation.add_task("νy*dy(v)**2",name='v-y-diss')
 dissipation.add_task("νy*dy(w)**2",name='w-y-diss')
