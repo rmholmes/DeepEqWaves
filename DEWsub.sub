@@ -4,9 +4,11 @@
 #PBS -l ncpus=32
 #PBS -l mem=64GB
 #PBS -l wd
-#PBS -q normal
+#PBS -q express
 #PBS -M ryan.holmes@unsw.edu.au
 
 source setup.sh
 
 mpiexec -np 32 python3 case00.py
+mpiexec -np 32 python3 merge.py rundir/snapshots
+mpiexec -np 32 python3 plot_2d_series.py rundir/snapshots/*.h5

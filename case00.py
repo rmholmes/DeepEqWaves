@@ -39,12 +39,12 @@ y_basis = de.Fourier('y', 512, interval=(-Ly, Ly), dealias=3/2)
 z_basis = de.Chebyshev('z', 256, interval=(0, Lz), dealias=3/2)
 domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
 
-# Periodic β
-ε = 0.03
+# Periodic beta
+eps = 0.03
 y = domain.grid(0)
 z = domain.grid(1)
 Y = domain.new_field()
-Y['g'] = Ly*(y/Ly - (2/np.pi)*np.arctan(ε*np.tan(np.pi*y/(2*Ly))))/(1-ε)
+Y['g'] = Ly*(y/Ly - (2/np.pi)*np.arctan(eps*np.tan(np.pi*y/(2*Ly))))/(1-eps)
 
 # Sponge layer
 SL0,dLy = 1/240,Ly/10
@@ -52,29 +52,29 @@ SL = domain.new_field()
 SL['g'] = SL0*np.exp(-(Ly*np.cos(np.pi*y/(2*Ly))/dLy)**2)
 
 # Forcing
-Amp, ay, az, σy, σz = 0.02, 0, 3.8, 30, 0.2
+Amp, ay, az, sigy, sigz = 0.02, 0, 3.8, 30, 0.2
 F0 = domain.new_field()
-F0['g'] = Amp*np.exp(-((y-ay)/σy)**2)*(1+erf((z-az)/σz))
+F0['g'] = Amp*np.exp(-((y-ay)/sigy)**2)*(1+erf((z-az)/sigz))
 
-Ω = 2*np.pi/24 # units = 1 hour
-f = 2*Ω
-β = f/6378 # earth radius = 6378km
+Omg = 2*np.pi/24 # units = 1 hour
+f = 2*Omg
+beta = f/6378 # earth radius = 6378km
 
 #Stratification profile
 B = domain.new_field()
-Btop, α = 80, 0.6 # Low Stratification Test Case
-#Btop, α = 325, 0.75 # Exponential Fit to Observed
-B['g'] = Btop*np.exp((z-Lz)/α)
-Bbot   = Btop*np.exp(-Lz/α)
+Btop, alp = 80, 0.6 # Low Stratification Test Case
+#Btop, alp = 325, 0.75 # Exponential Fit to Observed
+B['g'] = Btop*np.exp((z-Lz)/alp)
+Bbot   = Btop*np.exp(-Lz/alp)
 
 # Background stratification for linear simulation
 N2bak = domain.new_field()
 N2bak.meta['y']['constant'] = True
-N2bak['g'] = Btop*np.exp((z-Lz)/α)/α
+N2bak['g'] = Btop*np.exp((z-Lz)/alp)/alp
 
 N2ref = domain.new_field()
 N2ref.meta['y']['constant'] = True
-N2ref['g'] = (Btop/α)*(z/Lz)**(Lz//α) # because (1 + x/n)**n ~ exp(x)
+N2ref['g'] = (Btop/alp)*(z/Lz)**(Lz//alp) # because (1 + x/n)**n ~ exp(x)
 
 # Linear or Non-linear:
 LIN = True
@@ -83,41 +83,41 @@ LIN = True
 TRA = False
 
 # 2D Boussinesq hydrodynamics
-problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','ζ'])
+problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','zeta'])
 problem.meta[:]['z']['dirichlet'] = True
 
-problem.parameters['κy']  = 1e-4  #RA: Equivalent 2.77e-2 m2s-1
-problem.parameters['νy']  = 1e-4
-problem.parameters['κz']  = 1e-7  #RA: Equivalent 2.77e-5 m2s-1
-problem.parameters['νz']  = 1e-7
+problem.parameters['kappay']  = 1e-4  #RA: Equivalent 2.77e-2 m2s-1
+problem.parameters['nuy']  = 1e-4
+problem.parameters['kappaz']  = 1e-7  #RA: Equivalent 2.77e-5 m2s-1
+problem.parameters['nuz']  = 1e-7
 if TRA:
     problem.parameters['f']  = 0.
 else:
     problem.parameters['f']  = f
-problem.parameters['ω']  = Ω/10 # 10 days
-problem.parameters['βY'] = β*Y
+problem.parameters['omega']  = Omg/10 # 10 days
+problem.parameters['betaY'] = beta*Y
 problem.parameters['N2bak'] = N2bak
 problem.parameters['N2ref'] = N2ref
-problem.parameters['α'] = α
+problem.parameters['alp'] = alp
 problem.parameters['F0'] =  F0
 problem.parameters['SL'] = SL
 problem.parameters['Bbot'] = Bbot
 problem.parameters['Btop'] = Btop
 problem.add_equation("dy(v) + dz(w) = 0")
 if LIN:
-    problem.add_equation("dt(b) - κy*d(b,y=2) - κz*( dz(bz) - bz/α ) + w*N2ref = - w*(N2bak - N2ref)  - SL*b")
-    problem.add_equation("dt(u) + f*w - νy*d(u,y=2) - νz*dz(uz) =  βY*v - SL*u")
-    problem.add_equation("dt(v) - (νy-νz)*d(v,y=2) + νz*dz(ζ) + dy(p) = -βY*u - SL*v + F0*sin(ω*t)")
-    problem.add_equation("dt(w) - f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b = - SL*w")
+    problem.add_equation("dt(b) - kappay*d(b,y=2) - kappaz*( dz(bz) - bz/alp ) + w*N2ref = - w*(N2bak - N2ref)  - SL*b")
+    problem.add_equation("dt(u) + f*w - nuy*d(u,y=2) - nuz*dz(uz) =  betaY*v - SL*u")
+    problem.add_equation("dt(v) - (nuy-nuz)*d(v,y=2) + nuz*dz(zeta) + dy(p) = -betaY*u - SL*v + F0*sin(omega*t)")
+    problem.add_equation("dt(w) - f*u - (nuy-nuz)*d(w,y=2) - nuz*dy(zeta) + dz(p) - b = - SL*w")
 else:
-    problem.add_equation("dt(b)       -      κy*d(b,y=2) - κz*dz(bz)  + w*N2ref =        -(v*dy(b) + w*(bz-N2ref))")
-    problem.add_equation("dt(u) + f*w -      νy*d(u,y=2) - νz*dz(uz)            =  βY*v  -(v*dy(u) + w*uz)      - SL*u")
-    problem.add_equation("dt(v)       - (νy-νz)*d(v,y=2) + νz*dz(ζ) + dy(p)     = -βY*u  + ζ*w                  - SL*v + F0*sin(ω*t)")
-    problem.add_equation("dt(w) - f*u - (νy-νz)*d(w,y=2) - νz*dy(ζ) + dz(p) - b =        - ζ*v                  - SL*w")
+    problem.add_equation("dt(b)       -      kappay*d(b,y=2) - kappaz*dz(bz)  + w*N2ref =        -(v*dy(b) + w*(bz-N2ref))")
+    problem.add_equation("dt(u) + f*w -      nuy*d(u,y=2) - nuz*dz(uz)            =  betaY*v  -(v*dy(u) + w*uz)      - SL*u")
+    problem.add_equation("dt(v)       - (nuy-nuz)*d(v,y=2) + nuz*dz(zeta) + dy(p)     = -betaY*u  + zeta*w                  - SL*v + F0*sin(omega*t)")
+    problem.add_equation("dt(w) - f*u - (nuy-nuz)*d(w,y=2) - nuz*dy(zeta) + dz(p) - b =        - zeta*v                  - SL*w")
 problem.add_equation("bz - dz(b) = 0")
 problem.add_equation("uz - dz(u) = 0")
-problem.add_equation("ζ + dz(v) - dy(w) = 0")
-# RA: Advection terms are expressed using ζ by transforming pressure
+problem.add_equation("zeta + dz(v) - dy(w) = 0")
+# RA: Advection terms are expressed using zeta by transforming pressure
 # P -> P - 1/2*w^2 - 1/2*v^2
 if LIN:
     problem.add_bc("left(bz) = 0")
@@ -129,7 +129,7 @@ problem.add_bc("left(u) = 0")
 problem.add_bc("left(v) = 0")
 problem.add_bc("left(w) = 0")
 problem.add_bc("right(uz) = 0")
-problem.add_bc("right(ζ) = 0")
+problem.add_bc("right(zeta) = 0")
 problem.add_bc("right(w) = 0", condition="(ny != 0)")
 problem.add_bc("right(p) = 0", condition="(ny == 0)")
 
@@ -138,21 +138,21 @@ solver = problem.build_solver(de.timesteppers.RK222)
 logger.info('Solver built')
 
 # Initial conditions
-if !LIN:
+if not LIN:
     b = solver.state['b']
     p = solver.state['p']
     bz = solver.state['bz']
     b['g'] = B['g']
-    p['g'] = α*(B['g']-Btop)
+    p['g'] = alp*(B['g']-Btop)
     b.differentiate('z', out=bz)
 
 # Integration parameters
-solver.stop_sim_time = np.inf
-solver.stop_wall_time = 1*60*60.
+solver.stop_sim_time = 10000.
+solver.stop_wall_time = 1.5*60.*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=20, max_writes=50)
+snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=40, max_writes=50)
 snapshots.add_task("b")
 snapshots.add_task("bz")
 snapshots.add_task("p")
@@ -160,28 +160,28 @@ snapshots.add_task("u")
 snapshots.add_task("uz")
 snapshots.add_task("v")
 snapshots.add_task("w")
-snapshots.add_task("ζ")
+snapshots.add_task("zeta")
 if LIN:
-    snapshots.add_task("(uz**2+ζ**2)/abs(N2bak+bz)",name='invRi')
+    snapshots.add_task("(uz**2+zeta**2)/abs(N2bak+bz)",name='invRi')
 else:
-    snapshots.add_task("(uz**2+ζ**2)/abs(bz)",name='invRi')
+    snapshots.add_task("(uz**2+zeta**2)/abs(bz)",name='invRi')
 
-energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=20, max_writes=50)
+energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=40, max_writes=50)
 energies.add_task("0.5*u*u",name="Energy-x")
 energies.add_task("0.5*v*v",name="Energy-y")
 energies.add_task("0.5*w*w",name="Energy-z")
 if LIN:
     energies.add_task("0.5*b*b/N2bak",name="Energy-B")
 
-dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=20, max_writes=50)
-dissipation.add_task("νy*dy(u)**2",name='u-y-diss')
-dissipation.add_task("νy*dy(v)**2",name='v-y-diss')
-dissipation.add_task("νy*dy(w)**2",name='w-y-diss')
-dissipation.add_task("νz*ζ**2",name='vorticity-diss')
-dissipation.add_task("νz*uz**2",name='u-z-diss')
+dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=40, max_writes=50)
+dissipation.add_task("nuy*dy(u)**2",name='u-y-diss')
+dissipation.add_task("nuy*dy(v)**2",name='v-y-diss')
+dissipation.add_task("nuy*dy(w)**2",name='w-y-diss')
+dissipation.add_task("nuz*zeta**2",name='vorticity-diss')
+dissipation.add_task("nuz*uz**2",name='u-z-diss')
 if LIN:
-    dissipation.add_task("(κy/N2bak)*dy(b)**2",name='b-y-diss')
-    dissipation.add_task("(κz/N2bak)*bz**2",name='b-z-diss')
+    dissipation.add_task("(kappay/N2bak)*dy(b)**2",name='b-y-diss')
+    dissipation.add_task("(kappaz/N2bak)*bz**2",name='b-z-diss')
 
 dt=0.25
 # CFL
@@ -192,9 +192,9 @@ dt=0.25
 # Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
 if LIN:
-    flow.add_property("sqrt((uz**2+ζ**2)/abs(N2bak+bz))", name='root_inv_Ri')
+    flow.add_property("sqrt((uz**2+zeta**2)/abs(N2bak+bz))", name='root_inv_Ri')
 else:
-    flow.add_property("sqrt((uz**2+ζ**2)/abs(bz))", name='root_inv_Ri')
+    flow.add_property("sqrt((uz**2+zeta**2)/abs(bz))", name='root_inv_Ri')
 
 # Main loop
 try:
