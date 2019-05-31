@@ -79,6 +79,9 @@ N2ref['g'] = (Btop/α)*(z/Lz)**(Lz//α) # because (1 + x/n)**n ~ exp(x)
 # Linear or Non-linear:
 LIN = True
 
+# Traditional or Non-traditional:
+TRA = False
+
 # 2D Boussinesq hydrodynamics
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','ζ'])
 problem.meta[:]['z']['dirichlet'] = True
@@ -87,7 +90,10 @@ problem.parameters['κy']  = 1e-4  #RA: Equivalent 2.77e-2 m2s-1
 problem.parameters['νy']  = 1e-4
 problem.parameters['κz']  = 1e-7  #RA: Equivalent 2.77e-5 m2s-1
 problem.parameters['νz']  = 1e-7
-problem.parameters['f']  = f
+if TRA:
+    problem.parameters['f']  = 0.
+else:
+    problem.parameters['f']  = f
 problem.parameters['ω']  = Ω/10 # 10 days
 problem.parameters['βY'] = β*Y
 problem.parameters['N2bak'] = N2bak
@@ -142,7 +148,7 @@ if !LIN:
 
 # Integration parameters
 solver.stop_sim_time = np.inf
-solver.stop_wall_time = 6*60*60.
+solver.stop_wall_time = 1*60*60.
 solver.stop_iteration = np.inf
 
 # Analysis
