@@ -29,14 +29,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 # directories:
-rundir = '/short/e14/rmh561/dedalus/DeepEqWaves/rundir/'
+rundir = '/short/e14/rmh561/dedalus/DeepEqWaves/rundir/r2/'
 
 # Parameters
 Ly, Lz = (800., 4.) # units = 1km
 
 # Create bases and domain
-y_basis = de.Fourier('y', 512, interval=(-Ly, Ly), dealias=3/2)
-z_basis = de.Chebyshev('z', 256, interval=(0, Lz), dealias=3/2)
+y_basis = de.Fourier('y', 768, interval=(-Ly, Ly), dealias=3/2)
+z_basis = de.Chebyshev('z', 768, interval=(0, Lz), dealias=3/2)
 domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
 
 # Periodic beta
@@ -86,15 +86,15 @@ TRA = False
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','zeta'])
 problem.meta[:]['z']['dirichlet'] = True
 
-problem.parameters['kappay']  = 1e-4  #RA: Equivalent 2.77e-2 m2s-1
-problem.parameters['nuy']  = 1e-4
-problem.parameters['kappaz']  = 1e-7  #RA: Equivalent 2.77e-5 m2s-1
-problem.parameters['nuz']  = 1e-7
+problem.parameters['kappay']  = 5e-6  #RA: Equivalent 2.77e-2 m2s-1
+problem.parameters['nuy']  = 5e-6
+problem.parameters['kappaz']  = 1e-9  #RA: Equivalent 2.77e-5 m2s-1
+problem.parameters['nuz']  = 1e-9
 if TRA:
     problem.parameters['f']  = 0.
 else:
     problem.parameters['f']  = f
-problem.parameters['omega']  = Omg/10 # 10 days
+problem.parameters['omega']  = Omg/10
 problem.parameters['betaY'] = beta*Y
 problem.parameters['N2bak'] = N2bak
 problem.parameters['N2ref'] = N2ref
@@ -147,12 +147,12 @@ if not LIN:
     b.differentiate('z', out=bz)
 
 # Integration parameters
-solver.stop_sim_time = 10000.
-solver.stop_wall_time = 1.5*60.*60.
+solver.stop_sim_time = 24.*600
+solver.stop_wall_time = 3.5*60.*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=40, max_writes=50)
+snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=80, max_writes=50)
 snapshots.add_task("b")
 snapshots.add_task("bz")
 snapshots.add_task("p")
@@ -166,14 +166,14 @@ if LIN:
 else:
     snapshots.add_task("(uz**2+zeta**2)/abs(bz)",name='invRi')
 
-energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=40, max_writes=50)
+energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=80, max_writes=50)
 energies.add_task("0.5*u*u",name="Energy-x")
 energies.add_task("0.5*v*v",name="Energy-y")
 energies.add_task("0.5*w*w",name="Energy-z")
 if LIN:
     energies.add_task("0.5*b*b/N2bak",name="Energy-B")
 
-dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=40, max_writes=50)
+dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=80, max_writes=50)
 dissipation.add_task("nuy*dy(u)**2",name='u-y-diss')
 dissipation.add_task("nuy*dy(v)**2",name='v-y-diss')
 dissipation.add_task("nuy*dy(w)**2",name='w-y-diss')
