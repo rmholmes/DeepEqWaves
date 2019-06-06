@@ -148,11 +148,11 @@ if not LIN:
 
 # Integration parameters
 solver.stop_sim_time = 24.*600
-solver.stop_wall_time = 5*60.*60.
+solver.stop_wall_time = 5.5*60.*60.
 solver.stop_iteration = np.inf
 
 # Analysis
-snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=80, max_writes=50)
+snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=192, max_writes=100)
 snapshots.add_task("bz")
 snapshots.add_task("u")
 snapshots.add_task("v")
