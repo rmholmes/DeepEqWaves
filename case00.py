@@ -29,14 +29,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 # directories:
-rundir = '/short/e14/rmh561/dedalus/DeepEqWaves/rundir/r2/'
+rundir = '/short/e14/rmh561/dedalus/DeepEqWaves/rundir/r1/'
 
 # Parameters
 Ly, Lz = (800., 4.) # units = 1km
 
 # Create bases and domain
-y_basis = de.Fourier('y', 768, interval=(-Ly, Ly), dealias=3/2)
-z_basis = de.Chebyshev('z', 768, interval=(0, Lz), dealias=3/2)
+y_basis = de.Fourier('y', 1024, interval=(-Ly, Ly), dealias=3/2)
+z_basis = de.Chebyshev('z', 1024, interval=(0, Lz), dealias=3/2)
 domain = de.Domain([y_basis, z_basis], grid_dtype=np.float64)
 
 # Periodic beta
@@ -86,10 +86,10 @@ TRA = False
 problem = de.IVP(domain, variables=['p','b','u','v','w','bz','uz','zeta'])
 problem.meta[:]['z']['dirichlet'] = True
 
-problem.parameters['kappay']  = 5e-6  #RA: Equivalent 2.77e-2 m2s-1
-problem.parameters['nuy']  = 5e-6
-problem.parameters['kappaz']  = 1e-9  #RA: Equivalent 2.77e-5 m2s-1
-problem.parameters['nuz']  = 1e-9
+problem.parameters['kappay']  = 1e-5  #RA: Equivalent 2.77e-2 m2s-1
+problem.parameters['nuy']  = 1e-5
+problem.parameters['kappaz']  = 1e-8  #RA: Equivalent 2.77e-5 m2s-1
+problem.parameters['nuz']  = 1e-8
 if TRA:
     problem.parameters['f']  = 0.
 else:
@@ -148,42 +148,42 @@ if not LIN:
 
 # Integration parameters
 solver.stop_sim_time = 24.*600
-solver.stop_wall_time = 3.5*60.*60.
+solver.stop_wall_time = 5*60.*60.
 solver.stop_iteration = np.inf
 
 # Analysis
 snapshots = solver.evaluator.add_file_handler(rundir + 'snapshots', iter=80, max_writes=50)
-snapshots.add_task("b")
 snapshots.add_task("bz")
-snapshots.add_task("p")
 snapshots.add_task("u")
-snapshots.add_task("uz")
 snapshots.add_task("v")
-snapshots.add_task("w")
-snapshots.add_task("zeta")
 if LIN:
     snapshots.add_task("(uz**2+zeta**2)/abs(N2bak+bz)",name='invRi')
 else:
     snapshots.add_task("(uz**2+zeta**2)/abs(bz)",name='invRi')
+#snapshots.add_task("b")
+#snapshots.add_task("p")
+#snapshots.add_task("uz")
+#snapshots.add_task("w")
+#snapshots.add_task("zeta")
 
-energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=80, max_writes=50)
-energies.add_task("0.5*u*u",name="Energy-x")
-energies.add_task("0.5*v*v",name="Energy-y")
-energies.add_task("0.5*w*w",name="Energy-z")
-if LIN:
-    energies.add_task("0.5*b*b/N2bak",name="Energy-B")
+# energies = solver.evaluator.add_file_handler(rundir + 'energies', iter=80, max_writes=50)
+# energies.add_task("0.5*u*u",name="Energy-x")
+# energies.add_task("0.5*v*v",name="Energy-y")
+# energies.add_task("0.5*w*w",name="Energy-z")
+# if LIN:
+#     energies.add_task("0.5*b*b/N2bak",name="Energy-B")
 
-dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=80, max_writes=50)
-dissipation.add_task("nuy*dy(u)**2",name='u-y-diss')
-dissipation.add_task("nuy*dy(v)**2",name='v-y-diss')
-dissipation.add_task("nuy*dy(w)**2",name='w-y-diss')
-dissipation.add_task("nuz*zeta**2",name='vorticity-diss')
-dissipation.add_task("nuz*uz**2",name='u-z-diss')
-if LIN:
-    dissipation.add_task("(kappay/N2bak)*dy(b)**2",name='b-y-diss')
-    dissipation.add_task("(kappaz/N2bak)*bz**2",name='b-z-diss')
+# dissipation = solver.evaluator.add_file_handler(rundir + 'dissipation', iter=80, max_writes=50)
+# dissipation.add_task("nuy*dy(u)**2",name='u-y-diss')
+# dissipation.add_task("nuy*dy(v)**2",name='v-y-diss')
+# dissipation.add_task("nuy*dy(w)**2",name='w-y-diss')
+# dissipation.add_task("nuz*zeta**2",name='vorticity-diss')
+# dissipation.add_task("nuz*uz**2",name='u-z-diss')
+# if LIN:
+#     dissipation.add_task("(kappay/N2bak)*dy(b)**2",name='b-y-diss')
+#     dissipation.add_task("(kappaz/N2bak)*bz**2",name='b-z-diss')
 
-dt=0.25
+dt=0.125
 # CFL
 #CFL = flow_tools.CFL(solver, initial_dt=0.1, cadence=10, safety=1,
 #                     max_change=1.5, min_change=0.5, max_dt=0.1)
