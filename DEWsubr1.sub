@@ -1,0 +1,16 @@
+#!/bin/bash
+#PBS -N DEWr1
+#PBS -l walltime=06:00:00
+#PBS -l ncpus=256
+#PBS -l mem=256GB
+#PBS -l wd
+#PBS -q normal
+#PBS -M ryan.holmes@unsw.edu.au
+
+source setup.sh
+
+mpiexec -np 256 python3 case00r1.py
+mpiexec -np 256 python3 merge.py rundir/r1/snapshots
+mpiexec -np 256 python3 plot_2d_series.py rundir/r1/snapshots/*.h5 --output=rundir/r1/frames
+convert rundir/r1/frames/*.png rundir/r1/anim.gif
+

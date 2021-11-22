@@ -1,0 +1,15 @@
+#!/bin/bash
+#PBS -N PLT
+#PBS -l walltime=02:00:00
+#PBS -l ncpus=16
+#PBS -l mem=64GB
+#PBS -l wd
+#PBS -l jobfs=64GB
+#PBS -q express
+#PBS -M ryan.holmes@unsw.edu.au
+
+source setup.sh
+
+mpiexec -np 16 python3 plot_2d_series_prod.py savedir/hhres_10day/snapshots/*.h5 --output=savedir/hhres_10day/frames_prod
+convert savedir/hhres_10day/frames_prod/*.png savedir/hhres_10day/anim_prod_v.gif
+
